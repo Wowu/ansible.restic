@@ -16,7 +16,7 @@ export AWS_SECRET_ACCESS_KEY='{{ restic_repos[item.repo].aws_secret_access_key |
 export AWS_DEFAULT_REGION={{ restic_repos[item.repo].aws_default_region }}
 {% endif %}
 {% if item.src is defined %}
-BACKUP_SOURCE={{ item.src }}
+BACKUP_SOURCE="{{ item.src }}"
 {% endif %}
 set -euxo pipefail
 {#
@@ -47,7 +47,11 @@ set -euxo pipefail
   Define path
 #}
 {% macro path(repo) -%}
-  {% if repo.src is defined and repo.src != None and (repo.src|length>0)  %}{{ repo.src }}{% else %}{{ repo.stdin_filename }}{% endif %}
+  {% if repo.src is defined and repo.src != None and (repo.src|length>0)  -%}
+    --path {{ repo.src.split(' ') | join(' --path ') }}
+  {%- else -%}
+    --path {{ repo.stdin_filename }}
+  {%- endif %}
 {%- endmacro %}
 {#
   Define retention pattern
@@ -70,6 +74,9 @@ if [[ -z ${CRON+x} ]]; then
 else
   MODE_TAG="--tag cron"
 fi
+
+{{ restic_install_path }}/restic unlock
+
 {% if item.stdin is defined and item.stdin == true %}
   {{ item.stdin_cmd }} | {{ restic_install_path }}/restic backup --stdin $MODE_TAG {{ tags(item.tags) }} {{ stdin_filename(item.stdin_filename) }} $@
 {% else %}
@@ -78,4 +85,4 @@ fi
 {#
   Define stdin forget commands
 #}
-{{ restic_install_path }}/restic forget --path {{ path(item) }} {{ retention_pattern(item) }} {% if item.prune is defined and item.prune == true %}--prune{% endif %}
+{{ restic_install_path }}/restic forget {{ path(item) }} {{ retention_pattern(item) }} {% if item.prune is defined and item.prune == true %}--prune{% endif %}
